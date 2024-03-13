@@ -61,6 +61,11 @@ def read_examples_from_file(data_dir, mode):
                 examples[i]['present'] = True
     return examples
 
+def read_additional_train_examples_from_file(data_dir, sample_ratio):
+    additional_lines = read_examples_from_file(data_dir)
+    total_rows = int(len(additional_lines)*sample_ratio)
+    return additional_lines[:total_rows]
+
 
 def convert_examples_to_features(examples,
                                  label_list,
@@ -279,6 +284,12 @@ def load_and_cache_examples(args, tokenizer, labels, mode):
 
     logger.info("Creating features from dataset file at %s", args.data_dir)
     examples = read_examples_from_file(args.data_dir, mode)
+    
+    # Add this for data augmentation setting
+    if args.additional_train_dataset is not None and args.additional_train_ratio is not None:
+        additional_examples = read_additional_train_examples_from_file(args.additional_train_dataset, args.additional_train_ratio)
+        examples.extend(additional_examples)
+
     features = convert_examples_to_features(examples, labels, tokenizer, args.max_seq_length)
 
     # Convert to Tensors and build dataset
@@ -326,6 +337,8 @@ def main():
                         type=str, help='name of pretrained model/path to checkpoint')
     parser.add_argument("--save_steps", type=int, default=1, help='set to -1 to not save model')
     parser.add_argument("--max_seq_length", default=128, type=int, help="max seq length after tokenization")
+    parser.add_argument("--additional_train_dataset", type=str, default=None)
+    parser.add_argument("--additional_train_ratio", type=float, default=None)
 
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
