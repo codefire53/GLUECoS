@@ -43,8 +43,8 @@ def acc_and_f1(preds, labels):
     }
 
 
-def read_examples_from_file(data_dir, mode):
-    file_path = os.path.join(data_dir, "{}.txt".format(mode))
+def read_examples_from_file(data_filepath, mode):
+    file_path = data_filepath
     examples = []
     with open(file_path, 'r') as infile:
         lines = infile.read().strip().split('\n')
@@ -61,8 +61,8 @@ def read_examples_from_file(data_dir, mode):
                 examples[i]['present'] = True
     return examples
 
-def read_additional_train_examples_from_file(data_dir, sample_ratio):
-    additional_lines = read_examples_from_file(data_dir)
+def read_additional_train_examples_from_file(data_filepath, sample_ratio):
+    additional_lines = read_examples_from_file(data_filepath, "train")
     total_rows = int(len(additional_lines)*sample_ratio)
     return additional_lines[:total_rows]
 
@@ -181,7 +181,7 @@ def train(args, train_dataset, valid_dataset, model, tokenizer, labels):
 
 def evaluate(args, model, tokenizer, labels, mode, prefix=""):
 
-    eval_dataset = load_and_cache_examples(args, tokenizer, labels, mode=mode)
+    eval_dataset = load_and_cache_examples(args, args.test_data_file, tokenizer, labels, mode=mode)
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(
         eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size, collate_fn=collate)
@@ -280,10 +280,10 @@ def collate(examples):
     return first_sentence_padded, first_sentence_attn_masks, labels
 
 
-def load_and_cache_examples(args, tokenizer, labels, mode):
+def load_and_cache_examples(args, data_filepath, tokenizer, labels, mode):
 
     logger.info("Creating features from dataset file at %s", args.data_dir)
-    examples = read_examples_from_file(args.data_dir, mode)
+    examples = read_examples_from_file(data_filepath, mode)
     
     # Add this for data augmentation setting
     if args.additional_train_dataset is not None and args.additional_train_ratio is not None:
@@ -311,6 +311,12 @@ def main():
     # Required parameters
     parser.add_argument("--data_dir", default=None, type=str, required=True,
                         help="The input data dir")
+    parser.add_argument("--train_data_file", default=None, type=str, required=True,
+                        help="The training data path")
+    parser.add_argument("--val_data_file", default=None, type=str, required=True,
+                    help="The validation data file")
+    parser.add_argument("--eval_data_file", default=None, type=str, required=True,
+                    help="The evaluation data file")
 
     parser.add_argument("--output_dir", default=None, type=str, required=True,
                         help="The output directory where the model predictions and checkpoints will be written.")
@@ -374,9 +380,9 @@ def main():
     logger.info("Training/evaluation parameters %s", args)
 
     train_dataset = load_and_cache_examples(
-        args, tokenizer, labels, mode="train")
+        args, args.train_data_file, tokenizer, labels, mode="train")
     valid_dataset = load_and_cache_examples(
-        args, tokenizer, labels, mode="validation")
+        args, args.val_data_file, tokenizer, labels, mode="validation")
     global_step, tr_loss = train(
         args, train_dataset, valid_dataset, model, tokenizer, labels)
     logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
